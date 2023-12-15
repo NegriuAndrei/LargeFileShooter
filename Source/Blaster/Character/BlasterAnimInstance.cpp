@@ -39,6 +39,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsCrouched = BlasterCharacter->bIsCrouched;
 	bAiming = BlasterCharacter->IsAiming();
 	TurningInPlace = BlasterCharacter->GetTurningInPlace();
+	bRotateRootBone = BlasterCharacter->ShouldRotateRootBone();
 
 
 	// Cu FMath::RInterpTo alege drumul cel mai scurt de la o animatie la alta, de exemplu pentru Leaning, nu merge de la 180 ->0 ->-180 si merge direct de la 180-> -180
@@ -73,22 +74,14 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		if (BlasterCharacter->IsLocallyControlled())
 		{
 			bLocallyControlled = true;
-			//FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("RightHand"), ERelativeTransformSpace::RTS_World);
-			FTransform RightHandTransform = BlasterCharacter->GetMesh()->GetSocketTransform(FName("RightHand"), ERelativeTransformSpace::RTS_World);
-			RightHandRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(),
-			                                                           RightHandTransform.GetLocation() +
-			                                                           (RightHandTransform.GetLocation() -
-			                                                           	BlasterCharacter->GetHitTarget())
-			                                                           );
+			FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("RightHand"), ERelativeTransformSpace::RTS_World);
+			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget()));
+			LookAtRotation.Roll += BlasterCharacter->RightHandRotationRoll;
+			LookAtRotation.Yaw += BlasterCharacter->RightHandRotationYaw;
+			LookAtRotation.Pitch += BlasterCharacter->RightHandRotationPitch;
+ 
+			RightHandRotation = FMath::RInterpTo(RightHandRotation, LookAtRotation, DeltaSeconds, 100.f); 
 			
-				
-			FTransform MuzzleTipTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(
-				FName("MuzzleFlash"), ERelativeTransformSpace::RTS_World);
-			FVector MuzzleX(FRotationMatrix(MuzzleTipTransform.GetRotation().Rotator()).GetUnitAxis(EAxis::X));
-			DrawDebugLine(GetWorld(), MuzzleTipTransform.GetLocation(),
-			              MuzzleTipTransform.GetLocation() + MuzzleX * 1000.f, FColor::Red);
-			DrawDebugLine(GetWorld(), MuzzleTipTransform.GetLocation(), BlasterCharacter->GetHitTarget(),
-			              FColor::Orange);
 			
 		}
 	}

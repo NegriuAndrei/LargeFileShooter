@@ -14,10 +14,16 @@
 // Sets default values
 AWeapon::AWeapon()
 {
+
+	
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
+
+	//FRotator InitialMeshRotation = FRotator(90.0f, 180.0f, 0.0f); // Exemplu: rotație de 45 de grade în jurul axei Y
+	
+	//WeaponMesh->SetRelativeRotation(InitialMeshRotation);
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	//WeaponMesh->SetupAttachment(RootComponent);
 	SetRootComponent(WeaponMesh);
@@ -35,7 +41,11 @@ AWeapon::AWeapon()
 
 	PickUpWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickUpWidget"));
 	PickUpWidget->SetupAttachment(RootComponent);
+
+	
 }
+
+
 
 // Called when the game starts or when spawned
 void AWeapon::BeginPlay()

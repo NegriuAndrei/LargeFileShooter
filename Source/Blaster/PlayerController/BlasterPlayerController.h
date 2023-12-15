@@ -13,5 +13,10 @@ UCLASS()
 class BLASTER_API ABlasterPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-	
+
+public:
+
+
+private:
+	class ABlasterHUD* BlasterHUD;
 };
