@@ -40,6 +40,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bAiming = BlasterCharacter->IsAiming();
 	TurningInPlace = BlasterCharacter->GetTurningInPlace();
 	bRotateRootBone = BlasterCharacter->ShouldRotateRootBone();
+	bElimmed = BlasterCharacter->IsElimmed();
 
 
 	// Cu FMath::RInterpTo alege drumul cel mai scurt de la o animatie la alta, de exemplu pentru Leaning, nu merge de la 180 ->0 ->-180 si merge direct de la 180-> -180

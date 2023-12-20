@@ -2,7 +2,7 @@
 
 
 #include "BlasterCharacter.h"
-
+#include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/Weapon/Weapon.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -13,6 +13,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "Blaster/Blaster.h"
+#include "Blaster/GameMode/BlasterGameMode.h"
 #include "BlasterAnimInstance.h"
 
 // Sets default values
@@ -20,7 +21,7 @@ ABlasterCharacter::ABlasterCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetMesh());
 	CameraBoom->TargetArmLength = 400.f;
@@ -33,7 +34,7 @@ ABlasterCharacter::ABlasterCharacter()
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
-	OverheadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverheadWidhet"));
+	OverheadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverheadWidget"));
 	OverheadWidget->SetupAttachment(RootComponent);
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
@@ -67,10 +68,19 @@ void ABlasterCharacter::OnRep_ReplicatedMovement()
 	TimeSinceLastMovementReplication = 0.f;
 }
 
+
+
 // Called when the game starts or when spawned
 void ABlasterCharacter::BeginPlay()
 {
+	//UE_LOG(LogTemp, Warning, TEXT("S-a apelat functia callback si health-ul este: %f"), Health);
 	Super::BeginPlay();
+	UpdateHUDHealth();
+	if(HasAuthority()) 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("S-a apelat functia callback in BeginPlay si health-ul este: %f"), Health);
+		OnTakeAnyDamage.AddDynamic(this, &ABlasterCharacter::ReceiveDamage);
+	}
 }
 
 void ABlasterCharacter::Tick(float DeltaTime)
@@ -92,7 +102,7 @@ void ABlasterCharacter::Tick(float DeltaTime)
 	}
 	
 	
-	AimOffset(DeltaTime);
+	///AimOffset(DeltaTime);  ------ASTA MEGREA SI INAINTE SA FIE COMENTAT
 	HideCameraIfCharacterClose();
 }
 
@@ -141,6 +151,46 @@ void ABlasterCharacter::PlayFireMontage(bool bAiming)
 	
 }
 
+void ABlasterCharacter::PlayElimMontage()
+{
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if(AnimInstance && ElimMontage)
+	{
+		AnimInstance->Montage_Play(ElimMontage);
+	}
+}
+
+// asta la toti clientii
+void ABlasterCharacter::MulticastElim_Implementation()
+{
+	bElimmed = true;
+	PlayElimMontage();
+}
+
+// asta se apeleaza pe server
+void ABlasterCharacter::Elim()
+{
+	MulticastElim();
+	GetWorldTimerManager().SetTimer(
+		ElimTimer,
+		this,
+		&ABlasterCharacter::ElimTImerFinished,
+		ElimDelay
+		);
+}
+
+void ABlasterCharacter::ElimTImerFinished()
+{
+	ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
+	if(BlasterGameMode)
+	{
+		BlasterGameMode->RequestRespawn(this,Controller);
+	}
+}
+
+
+
 void ABlasterCharacter::PlayHitReactMontage()
 {
 	if(Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
@@ -153,6 +203,26 @@ void ABlasterCharacter::PlayHitReactMontage()
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 
+}
+
+void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
+	AController* InstigatorController, AActor* DamageCauser)
+{
+	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+	UpdateHUDHealth();
+	PlayHitReactMontage();
+
+		if(Health == 0.f)
+		{
+			ABlasterGameMode* BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
+			if(BlasterGameMode)
+			{
+				BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+				ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
+				BlasterGameMode->PlayerEliminated(this, BlasterPlayerController, AttackerController);
+			}
+		}
+	
 }
 
 void ABlasterCharacter::MoveForward(float Value)
@@ -265,7 +335,7 @@ void ABlasterCharacter::AimOffset(float DeltaTime)
 		AO_Yaw = DeltaAimRotator.Yaw;
 		if (TurningInPlace == ETurningInPlace::ETIP_NotTurning)
 		{
-			IInterpAO_Yaw = AO_Yaw;
+			InterpAO_Yaw = AO_Yaw;
 		}
 		bUseControllerRotationYaw = true;
 		TurnInPlace(DeltaTime);
@@ -300,7 +370,7 @@ void ABlasterCharacter::SimProxiesTurn()
 	ProxyRotation = GetActorRotation();
 	ProxyYaw = UKismetMathLibrary::NormalizedDeltaRotator(ProxyRotation, ProxyRotationLastFrame).Yaw;
 
-	UE_LOG(LogTemp,Warning, TEXT("ProxyYaw: %f"), ProxyYaw)
+	UE_LOG(LogTemp,Warning, TEXT("ProxyYaw: %f"), ProxyYaw);
 
 	if(FMath::Abs(ProxyYaw)> TurnThreshold)
 	{
@@ -363,8 +433,8 @@ void ABlasterCharacter::TurnInPlace(float DeltaTime)
 	}
 	if (TurningInPlace != ETurningInPlace::ETIP_NotTurning)
 	{
-		IInterpAO_Yaw = FMath::FInterpTo(IInterpAO_Yaw, 0.f, DeltaTime, 4.f);
-		AO_Yaw = IInterpAO_Yaw;
+		InterpAO_Yaw = FMath::FInterpTo(InterpAO_Yaw, 0.f, DeltaTime, 4.f);
+		AO_Yaw = InterpAO_Yaw;
 		if (FMath::Abs(AO_Yaw) < 15.f)
 		{
 			TurningInPlace = ETurningInPlace::ETIP_NotTurning;
@@ -373,10 +443,6 @@ void ABlasterCharacter::TurnInPlace(float DeltaTime)
 	}
 }
 
-void ABlasterCharacter::MulticastHit_Implementation()
-{
-	PlayHitReactMontage();
-}
 
 void ABlasterCharacter::HideCameraIfCharacterClose()
 {
@@ -409,8 +475,20 @@ float ABlasterCharacter::CalculateSpeed()
 
 void ABlasterCharacter::OnRep_Health()
 {
-	
+	UpdateHUDHealth();
+	PlayHitReactMontage();
 }
+
+void ABlasterCharacter::UpdateHUDHealth()
+{
+	BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+
+	if(BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDHealth(Health,MaxHealth);
+	}
+}
+
 
 void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {

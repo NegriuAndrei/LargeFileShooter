@@ -22,13 +22,17 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	void PlayFireMontage(bool bAiming);
-	
+	void PlayElimMontage();
 
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastHit();
+	void Elim();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastElim();
 	
+	//virtual void TakeDamage() override;
+
 	virtual void OnRep_ReplicatedMovement() override;
 	
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -49,6 +53,10 @@ protected:
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void PlayHitReactMontage();
+
+	UFUNCTION()
+	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
+	void UpdateHUDHealth();
 	
 private:
 	UPROPERTY(VisibleAnywhere, Category= Camera)
@@ -73,7 +81,7 @@ private:
 	void ServerEquipButtonPressed();
 
 	float AO_Yaw;
-	float IInterpAO_Yaw;
+	float InterpAO_Yaw;
 	float AO_Pitch;
 	FRotator StartingAimRotation;
 	ETurningInPlace TurningInPlace;
@@ -83,7 +91,10 @@ private:
 	class UAnimMontage* FireWeaponMontage;
 
 	UPROPERTY(EditAnywhere, Category = Combat)
-	class UAnimMontage* HitReactMontage;
+	UAnimMontage* HitReactMontage;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	UAnimMontage* ElimMontage;
 	
 	void HideCameraIfCharacterClose();
 
@@ -111,6 +122,18 @@ UPROPERTY(EditAnywhere, Category = "Player Stats")
 
 	UFUNCTION()
 	void OnRep_Health();
+
+	class ABlasterPlayerController* BlasterPlayerController;
+
+	bool bElimmed = false;
+
+	FTimerHandle ElimTimer;
+	
+	UPROPERTY(EditDefaultsOnly)
+	float ElimDelay = 3.f;
+	void ElimTImerFinished();
+	
+	
 public:
 	// de fiecare data cand variabila OverlappingWeapon se schimba pe server, aceasta va replica functia de mai jos si implicit va lua aceeasi valoare pentru toti clientii, nu se apeleaza la fiecare frame si doar la fiecare modificare a variabilei
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -124,6 +147,7 @@ public:
 	FVector GetHitTarget() const;
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone;  }
+	FORCEINLINE bool IsElimmed() const { return bElimmed;  }
 
 	
 	
