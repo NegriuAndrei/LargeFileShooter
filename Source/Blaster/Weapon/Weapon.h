@@ -4,12 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "WeaponTypes.h"
 #include "Weapon.generated.h"
+
 
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
-EWS_Initial UMETA(DisplayName = "Initial State"),
+	EWS_Initial UMETA(DisplayName = "Initial State"),
 	EWS_Equipped UMETA(DisplayName = "Equipped"),
 	EWS_Dropped UMETA(DisplayName = "Dropped"),
 	EWS_MAX UMETA(DisplayName = "DefaultMAX")
@@ -28,10 +30,13 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	// Putem avea variabile replicate, pentru ca am setat ca si clasa Weapon sa fie una replicata
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void OnRep_Owner() override;
+	void SetHUDAmmo();
 	void ShowPickUpWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
 
 	void Dropped();
+	void AddAmmo(int32 AmmoToAdd);
 	
 	/*
 	*Textures for the weapon crosshairs
@@ -69,6 +74,9 @@ UPROPERTY(EditAnywhere)
 
 	UPROPERTY(EditAnywhere, Category = Combat)
 	bool bAutomatic = true;
+
+	UPROPERTY(EditAnywhere)
+	class USoundCue* EquipSound;
 	
 protected:
 	// Called when the game starts or when spawned
@@ -115,7 +123,25 @@ private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class ACasing> CasingClass;
 
+	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_Ammo)
+	int32 Ammo;
+
+	UFUNCTION()
+	void OnRep_Ammo();
 	
+	void SpendRound();
+	
+	UPROPERTY(EditAnywhere) 
+	int32 MagCapacity;
+
+	UPROPERTY()
+	class ABlasterCharacter* BlasterOwnerCharacter;
+	
+	UPROPERTY()
+	class ABlasterPlayerController* BlasterOwnerController;
+
+	UPROPERTY(EditAnywhere)
+	EWeaponType WeaponType;
 
 	
 public:
@@ -125,4 +151,8 @@ public:
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh;}
 	FORCEINLINE float GetZoomFOV() const{return ZoomedFOV;}
 	FORCEINLINE float GetZoomInterpSpeed() const{return ZoomInterpSpeed;}
+	bool IsEmpty();
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType;}
+	FORCEINLINE int32 GetAmmo() const { return Ammo;}
+	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity;}
 };

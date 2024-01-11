@@ -6,6 +6,7 @@
 #include "BlasterCharacter.h"
 #include "Blaster/Weapon/Weapon.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Blaster/BlasterTypes/CombatState.h"
 
 void UBlasterAnimInstance::NativeInitializeAnimation()
 {
@@ -86,4 +87,8 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			
 		}
 	}
+
+	bUseFABRIK = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+	bUseAimOffsets = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+	bUseAimOffsets = BlasterCharacter->GetCombatState() != ECombatState::ECS_Reloading;
 }

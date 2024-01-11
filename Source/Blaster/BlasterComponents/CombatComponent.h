@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Components/ActorComponent.h"
+#include "Blaster/Weapon/WeaponTypes.h"
+#include "Blaster/BlasterTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
 #define TRACE_LENGHT  80000.f
@@ -24,6 +26,9 @@ public:
 	// II da acces la tot cat si la private si protected
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
+	void Reload();
+	UFUNCTION(BlueprintCallable)
+	void FinishReloading();
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -48,6 +53,13 @@ protected:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
 	void SetHUDCrosshairs(float DeltaTime);
+
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+
+	void HandleReload();
+
+	int32 AmountToReload();
 private:
 	UPROPERTY()
 	class ABlasterCharacter* Character;
@@ -110,6 +122,31 @@ private:
 	
 	void StartFireTimer();
 	void FireTimerFinished();
+
+	bool CanFire();
+
+	// Carried ammo for the curently equipped weapon
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
+	int32 CarriedAmmo;
+
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
+
+	//	TMap nu poate fi replicat :(
+	TMap<EWeaponType,int32> CarriedAmmoMap;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingARAmmo = 30;
+	
+	void InitializeCarriedAmmo();
+
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	ECombatState CombatState = ECombatState::ECS_Unoccupied;
+
+	UFUNCTION()
+	void OnRep_CombatState();
+
+	void UpdateAmmoValues();
 	
 public:	
 
