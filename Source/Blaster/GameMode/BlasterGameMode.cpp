@@ -7,6 +7,14 @@
 #include "GameFramework/PlayerStart.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
+#include "Blaster/GameState/BlasterGameState.h"
+#include "Blaster/HUD/BlasterHUD.h"
+
+namespace MatchState
+{
+	const FName Cooldown = FName("Cooldown");
+}
+
 
 ABlasterGameMode::ABlasterGameMode()
 {
@@ -33,6 +41,31 @@ void ABlasterGameMode::Tick(float DeltaSeconds)
 			StartMatch();
 		}
 	}
+	else if(MatchState == MatchState::InProgress)
+	{
+		CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if(CountdownTime <= 0.f)
+		{
+			SetMatchState(MatchState::Cooldown);
+		}
+	}
+	else if(MatchState == MatchState::Cooldown)
+	{
+		CountdownTime = CooldownTime+ WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if(CountdownTime <= 0.f)
+		{
+			
+			RestartGame();
+			/*
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				bUseSeamlessTravel = true;
+				World->ServerTravel(FString("/Game/Maps/Level1?listen"));
+			}
+			*/
+		}
+	}
 }
 
 void ABlasterGameMode::OnMatchStateSet()
@@ -54,12 +87,17 @@ void ABlasterGameMode::OnMatchStateSet()
 void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController,
                                         ABlasterPlayerController* AttackerController)
 {
+	if(AttackerController == nullptr || AttackerController->PlayerState == nullptr) return;
+	if(VictimController == nullptr || VictimController->PlayerState == nullptr) return;
 	ABlasterPlayerState* AttackerPlayerState = AttackerController ? Cast<ABlasterPlayerState>(AttackerController->PlayerState) : nullptr;
 	ABlasterPlayerState* VictimPlayerState = VictimController ? Cast<ABlasterPlayerState>(VictimController->PlayerState) : nullptr;
 
-	if(AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
+	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+	
+	if(AttackerPlayerState && AttackerPlayerState != VictimPlayerState && BlasterGameState)
 	{
 		AttackerPlayerState->AddToScore(1.0f);
+		BlasterGameState->UpdateTopScore(AttackerPlayerState);
 	}
 	if(VictimPlayerState)
 	{

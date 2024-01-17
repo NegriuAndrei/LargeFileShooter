@@ -9,7 +9,7 @@
 #include "Blaster/BlasterTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
-#define TRACE_LENGHT  80000.f
+
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -29,6 +29,7 @@ public:
 	void Reload();
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
+	void FireButtonPressed(bool bPressed);
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -41,7 +42,6 @@ protected:
 	void OnRep_EquippedWeapon();
 	void Fire();
 
-	void FireButtonPressed(bool bPressed);
 
 	UFUNCTION(Server, Reliable)
 	void ServerFire(const FVector_NetQuantize& TraceHitTarget);
@@ -137,6 +137,21 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	int32 StartingARAmmo = 30;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingRocketAmmo = 0;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingPistolAmmo = 20;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingSMGAmmo = 20;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingShotgunAmmo = 0;
+
+	UPROPERTY(EditAnywhere)
+	int32 StartingSniperAmmo = 5;
 	
 	void InitializeCarriedAmmo();
 

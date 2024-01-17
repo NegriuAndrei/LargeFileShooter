@@ -65,6 +65,7 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	// cu specificarea conditiei, functia se va replica doar ownerilor de blaster character
 	DOREPLIFETIME_CONDITION(ABlasterCharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME(ABlasterCharacter, Health);
+	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 }
 
 
@@ -81,6 +82,14 @@ void ABlasterCharacter::Destroyed()
 	if(ElimBotComponent)
 	{
 		ElimBotComponent->DestroyComponent();
+	}
+
+	ABlasterGameMode* BlasterGameMode= Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this));
+	//Adaugam asta sa verificam sa nu dispara arma cand e eliminat cineva si meciul e in desfasurare, doar cand se da restart la meci
+	bool bMatchNotInProgress = BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::InProgress;
+	if(Combat && Combat->EquippedWeapon && bMatchNotInProgress)
+	{
+		Combat->EquippedWeapon->Destroy();
 	}
 }
 
@@ -102,6 +111,23 @@ void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	RotateInPlace(DeltaTime);
+	
+	
+	///AimOffset(DeltaTime);  ------ASTA MEGREA SI INAINTE SA FIE COMENTAT
+	HideCameraIfCharacterClose();
+	PollInit();
+}
+
+void ABlasterCharacter::RotateInPlace(float DeltaTime)
+{
+	if(bDisableGameplay)
+	{
+		bUseControllerRotationYaw = false;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
+		
+	}
 	if(GetLocalRole()> ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())
 	{
 		AimOffset(DeltaTime);
@@ -115,11 +141,6 @@ void ABlasterCharacter::Tick(float DeltaTime)
 		}
 		CalculateAO_Pitch();
 	}
-	
-	
-	///AimOffset(DeltaTime);  ------ASTA MEGREA SI INAINTE SA FIE COMENTAT
-	HideCameraIfCharacterClose();
-	PollInit();
 }
 
 // Called to bind functionality to input
@@ -184,6 +205,21 @@ void ABlasterCharacter::PlayReloadMontage()
 		case EWeaponType::EWT_AssaultRifle:
 			SectionName= FName("Rifle");
 			break;
+		case EWeaponType::EWT_RocketLauncher:
+			SectionName= FName("Rifle");
+			break;
+		case EWeaponType::EWT_Pistol:
+			SectionName= FName("Rifle");
+			break;
+		case EWeaponType::EWT_SubmachineGun:
+			SectionName= FName("Rifle");
+			break;
+		case EWeaponType::EWT_Shotgun:
+			SectionName= FName("Rifle"); 
+			break;
+		case EWeaponType::EWT_SniperRifle:
+			SectionName= FName("Rifle"); 
+			break;
 		}
 		
 		AnimInstance->Montage_JumpToSection(SectionName);
@@ -225,10 +261,12 @@ if(BlasterPlayerController)
 
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
-	if(BlasterPlayerController)
+	bDisableGameplay = true;
+	if(Combat)
 	{
-		DisableInput(BlasterPlayerController);
+		Combat->FireButtonPressed(false);
 	}
+	
 	// Dissable collision
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -252,6 +290,15 @@ if(BlasterPlayerController)
 			ElimBotSound,
 			GetActorLocation()
 			);
+	}
+	bool bHideSniperScope = IsLocallyControlled() &&
+		Combat &&
+			Combat->bAiming &&
+				Combat->EquippedWeapon &&
+					Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle;
+	if(bHideSniperScope)
+	{
+		ShowSniperScopeWidget(false);
 	}
 	
 }
@@ -323,6 +370,7 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const 
 
 void ABlasterCharacter::MoveForward(float Value)
 {
+	if(bDisableGameplay) return;
 	if (Controller != nullptr && Value != 0.f)
 	{
 		const FRotator YawRotation(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -333,6 +381,7 @@ void ABlasterCharacter::MoveForward(float Value)
 
 void ABlasterCharacter::MoveRight(float Value)
 {
+	if(bDisableGameplay) return;
 	if (Controller != nullptr && Value != 0.f)
 	{
 		const FRotator YawRotation(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -353,6 +402,7 @@ void ABlasterCharacter::LookUp(float Value)
 
 void ABlasterCharacter::EquipButtonPressed()
 {
+	if(bDisableGameplay) return;
 	if (Combat)
 	{
 		if (HasAuthority())
@@ -379,6 +429,7 @@ void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 
 void ABlasterCharacter::CrouchButtonPressed()
 {
+	if(bDisableGameplay) return;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -391,6 +442,7 @@ void ABlasterCharacter::CrouchButtonPressed()
 
 void ABlasterCharacter::ReloadButtonPressed()
 {
+	if(bDisableGameplay) return;
 	if(Combat)
 	{
 		Combat->Reload();
@@ -400,6 +452,7 @@ void ABlasterCharacter::ReloadButtonPressed()
 
 void ABlasterCharacter::AimButtonPressed()
 {
+	if(bDisableGameplay) return;
 	if (Combat)
 	{
 		Combat->SetAiming(true);
@@ -408,6 +461,7 @@ void ABlasterCharacter::AimButtonPressed()
 
 void ABlasterCharacter::AimButtonReleased()
 {
+	if(bDisableGameplay) return;
 	if (Combat)
 	{
 		Combat->SetAiming(false);
@@ -499,6 +553,7 @@ void ABlasterCharacter::SimProxiesTurn()
 
 void ABlasterCharacter::Jump()
 {
+	if(bDisableGameplay) return;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -511,6 +566,7 @@ void ABlasterCharacter::Jump()
 
 void ABlasterCharacter::FireButtonPressed()
 {
+	if(bDisableGameplay) return;
 	if(Combat)
 	{
 		Combat->FireButtonPressed(true);
@@ -519,6 +575,7 @@ void ABlasterCharacter::FireButtonPressed()
 
 void ABlasterCharacter::FireButtonReleased()
 {
+	if(bDisableGameplay) return;
 	if(Combat)
 	{
 		Combat->FireButtonPressed(false);
@@ -607,6 +664,8 @@ void ABlasterCharacter::PollInit()
 		}
 	}
 }
+
+
 
 
 void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
