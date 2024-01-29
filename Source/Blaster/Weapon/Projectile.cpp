@@ -9,6 +9,8 @@
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/Blaster.h"
 #include "Sound/SoundCue.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 
 // Sets default values
 AProjectile::AProjectile()
@@ -54,19 +56,80 @@ void AProjectile::BeginPlay()
 	
 }
 
+
+
 void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	FVector NormalImpulse, const FHitResult& Hit)
+                        FVector NormalImpulse, const FHitResult& Hit)
 {
 	
 	Destroy();
+}
+
+void AProjectile::SpawnTrailSystem()
+{
+	if(TrailSystem)
+	{
+		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			TrailSystem,
+			GetRootComponent(),
+			FName(),
+			GetActorLocation(),
+			GetActorRotation(),
+			EAttachLocation::KeepWorldPosition,
+			false
+			);
+	}
+}
+
+void AProjectile::ExplodeDamage()
+{
+	
+	APawn* FiringPawn = GetInstigator();
+	if(FiringPawn && HasAuthority())
+	{
+		AController* FiringController = FiringPawn->GetController();
+		if(FiringController)
+		{
+			
+			UGameplayStatics::ApplyRadialDamageWithFalloff(
+				this,//World context object
+				Damage,//Base Damage
+				10.f,//MinimumDamage
+				GetActorLocation(),//Originea 
+				InnerRadiusDamage,
+				OuterRadiusDamage,
+				1.f,//Damage Fall Off
+				UDamageType::StaticClass(),// DamageTypeClass
+				TArray<AActor*>(),//aici dam o lista goala cu charactere care sa nu fie afectate de damege doar ca sa satisfacem apelul
+				this,//DamageCauser
+				FiringController//Instigator Controller
+				);
+		}
+	}
 }
 
 // Called every frame
 void AProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
+
+
+void AProjectile::StartDestroyTimer()
+{
+	GetWorldTimerManager().SetTimer(
+		DestroyTimer,
+		this,
+		&AProjectile::DestroyTimerFinished,
+		DestroyTime
+		);
+}
+
+void AProjectile::DestroyTimerFinished()
+{
+	Destroy();
+}
+
 
 void AProjectile::Destroyed()
 {

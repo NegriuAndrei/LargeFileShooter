@@ -26,6 +26,8 @@ public:
 	void PlayFireMontage(bool bAiming);
 	void PlayReloadMontage();
 	void PlayElimMontage();
+	void PlayThrowGrenadeMontage();
+	
 
 	void Elim();
 	UFUNCTION(NetMulticast, Reliable)
@@ -64,6 +66,7 @@ protected:
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void PlayHitReactMontage();
+	void GrenadeButtonPressed();
 
 	UFUNCTION()
 	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
@@ -116,6 +119,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = Combat)
 	UAnimMontage* ElimMontage;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	UAnimMontage* ThrowGrenadeMontage;
 	
 	
 	void HideCameraIfCharacterClose();
@@ -197,6 +203,13 @@ private:
 
 	UPROPERTY()
 	class ABlasterPlayerState* BlasterPlayerState;
+
+	/**
+	 *	Grenade
+	 */
+
+	UPROPERTY(VisibleAnywhere)
+	UStaticMeshComponent* AttachedGrenade;
 	
 public:
 	// de fiecare data cand variabila OverlappingWeapon se schimba pe server, aceasta va replica functia de mai jos si implicit va lua aceeasi valoare pentru toti clientii, nu se apeleaza la fiecare frame si doar la fiecare modificare a variabilei
@@ -217,6 +230,8 @@ public:
 	ECombatState GetCombatState() const;
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat;}
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay;}
+	FORCEINLINE UAnimMontage* GetReloadMontage() const { return ReloadMontage;}
+	FORCEINLINE UStaticMeshComponent* GetAttachedGrenade() const {return AttachedGrenade;}
 	
 	
 	UPROPERTY(EditAnywhere, Category = "WeaponRotationCorrection") 

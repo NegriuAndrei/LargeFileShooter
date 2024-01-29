@@ -25,14 +25,6 @@ protected:
 	
 	virtual void BeginPlay() override;
 
-	void DestroyTimerFinished();
-
-	UPROPERTY()
-	class UNiagaraComponent* TrailSystemComponent;
-	
-	UPROPERTY(EditAnywhere)
-	class UNiagaraSystem* TrailSystem;
-
 
 	UPROPERTY(EditAnywhere)
 	USoundCue* ProjectileLoop;
@@ -46,21 +38,9 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	class URocketMovementComponent* RocketMovementComponent;
 	
-	UPROPERTY(EditAnywhere)
-	float InnerRadiusDamage = 200.f;
-
-	UPROPERTY(EditAnywhere)
-	float OuterRadiusDamage = 500.f;
 
 private:
 
 	
-	FTimerHandle DestroyTimer;
 
-	UPROPERTY(EditAnywhere)
-	float DestroyTime = 3.f;
-	
-	
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* RocketMesh;
 };

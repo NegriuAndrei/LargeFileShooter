@@ -29,7 +29,7 @@ ABlasterCharacter::ABlasterCharacter()
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetMesh());
-	CameraBoom->TargetArmLength = 400.f;
+	CameraBoom->TargetArmLength = 300.f;
 	CameraBoom->bUsePawnControlRotation = true;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -57,6 +57,10 @@ ABlasterCharacter::ABlasterCharacter()
 	MinNetUpdateFrequency = 33.f;
 
 	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimelineComponent"));
+
+	AttachedGrenade = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Attached Grenade"));
+	AttachedGrenade->SetupAttachment(GetMesh(),FName("GrenadeSocket"));
+	AttachedGrenade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -104,6 +108,11 @@ void ABlasterCharacter::BeginPlay()
 	{
 		
 		OnTakeAnyDamage.AddDynamic(this, &ABlasterCharacter::ReceiveDamage);
+	}
+
+	if(AttachedGrenade)
+	{
+		AttachedGrenade->SetVisibility(false);
 	}
 }
 
@@ -160,6 +169,8 @@ void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ABlasterCharacter::FireButtonPressed);
 	PlayerInputComponent->BindAction("Fire", IE_Released, this, &ABlasterCharacter::FireButtonReleased);
 	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &ABlasterCharacter::ReloadButtonPressed);
+	PlayerInputComponent->BindAction("ThrowGrenade", IE_Pressed, this, &ABlasterCharacter::GrenadeButtonPressed);
+
 
 }
 
@@ -206,19 +217,22 @@ void ABlasterCharacter::PlayReloadMontage()
 			SectionName= FName("Rifle");
 			break;
 		case EWeaponType::EWT_RocketLauncher:
-			SectionName= FName("Rifle");
+			SectionName= FName("RocketLauncher");
 			break;
 		case EWeaponType::EWT_Pistol:
-			SectionName= FName("Rifle");
+			SectionName= FName("Pistol");
 			break;
 		case EWeaponType::EWT_SubmachineGun:
-			SectionName= FName("Rifle");
+			SectionName= FName("Pistol");
 			break;
 		case EWeaponType::EWT_Shotgun:
-			SectionName= FName("Rifle"); 
-			break;
+			SectionName= FName("Shotgun"); 
+			break; 
 		case EWeaponType::EWT_SniperRifle:
-			SectionName= FName("Rifle"); 
+			SectionName= FName("SniperRifle"); 
+			break;
+		case EWeaponType::EWT_GrenadeLauncher:
+			SectionName= FName("GrenadeLauncher"); 
 			break;
 		}
 		
@@ -234,6 +248,18 @@ void ABlasterCharacter::PlayElimMontage()
 	{
 		AnimInstance->Montage_Play(ElimMontage);
 	}
+}
+
+void ABlasterCharacter::PlayThrowGrenadeMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if(AnimInstance && ThrowGrenadeMontage)
+	{
+		AnimInstance->Montage_Play(ThrowGrenadeMontage);
+	}
+
+
+	
 }
 
 // asta la toti clientii
@@ -348,9 +374,20 @@ void ABlasterCharacter::PlayHitReactMontage()
 
 }
 
-void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
-	AController* InstigatorController, AActor* DamageCauser)
+void ABlasterCharacter::GrenadeButtonPressed()
 {
+
+	if(Combat)
+	{
+		Combat->ThrowGrenade();
+	}
+	
+}
+
+void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
+                                      AController* InstigatorController, AActor* DamageCauser)
+{
+	if(bElimmed) return;
 	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
 	UpdateHUDHealth();
 	PlayHitReactMontage();

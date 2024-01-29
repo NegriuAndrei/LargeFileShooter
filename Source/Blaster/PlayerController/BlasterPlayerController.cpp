@@ -234,6 +234,26 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	}
 }
 
+void ABlasterPlayerController::SetHUDGrenades(int32 Grenades)
+{
+	BlasterHUD= BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+						 BlasterHUD ->CharacterOverlay &&
+						 BlasterHUD->CharacterOverlay->GrenadesText;
+	if(bHUDValid)
+	{
+		FString GrenadesText = FString::Printf(TEXT("%d"), Grenades);
+		BlasterHUD->CharacterOverlay->GrenadesText->SetText(FText::FromString(GrenadesText));
+		
+	}
+	else
+	{
+		HUDGrenades = Grenades;
+	}
+
+	
+}
+
 void ABlasterPlayerController::SetHUDTime()
 {
 //asta cu Has Authority a trebuit posa pentru ca LevelStartingTime nu era luat corect, fiind apelat begin play-ul de la player controler primul nu cel de la game mode
@@ -299,6 +319,14 @@ void ABlasterPlayerController::PoolInit()
 				SetHUDHealth(HUDHealth,HUDMaxHealth);
 				SetHUDScore(HUDScore);
 				SetHUDDefeats(HUDDefeats);
+
+				ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
+				if(BlasterCharacter && BlasterCharacter->GetCombat())
+				{
+					SetHUDGrenades(BlasterCharacter->GetCombat()->GetGrenades());
+					
+				}
+				
 			}
 		}
 	}
