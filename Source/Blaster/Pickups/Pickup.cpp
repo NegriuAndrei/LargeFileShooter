@@ -3,6 +3,10 @@
 #include "Sound/SoundCue.h"
 #include "Components/SphereComponent.h"
 #include "Blaster/Weapon/WeaponTypes.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+
+
 
 
 APickup::APickup()
@@ -27,16 +31,26 @@ APickup::APickup()
 	PickupMesh->SetRelativeScale3D(FVector(2.f,2.f,2.f));
 	PickupMesh->SetRenderCustomDepth(true);
 	PickupMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_PURPLE);
+
+	PickupEffectComponent= CreateDefaultSubobject<UNiagaraComponent>(TEXT("PickupEffectComponent"));
+	PickupEffectComponent->SetupAttachment(RootComponent);
 }
 
 void APickup::BeginPlay()
 {
 	Super::BeginPlay();
-
 	if(HasAuthority())
 	{
 		OverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnSphereOverlap);
 	}
+
+	GetWorldTimerManager().SetTimer(
+		BindOverlapTimer,
+		this,
+		&APickup::BindOverlapTimerFinish,
+		BindOverlapTime
+		);
+	
 	
 }
 
@@ -49,13 +63,18 @@ void APickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	
 }
 
+void APickup::BindOverlapTimerFinish()
+{
+		OverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnSphereOverlap);
+}
+
 void APickup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
 	if(PickupMesh)
 	{
-		PickupMesh->AddLocalRotation(FRotator(0.f, BaseTurnRate * DeltaTime, 0.f));
+		PickupMesh->AddWorldRotation(FRotator(0.f, BaseTurnRate * DeltaTime, 0.f));
 	}
 
 }
@@ -70,6 +89,17 @@ void APickup::Destroyed()
 			PickupSound,
 			GetActorLocation()
 			);
+	}
+
+	if(PickupEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this,
+			PickupEffect,
+			GetActorLocation(),
+			GetActorRotation()
+		);
+	
 	}
 
 }

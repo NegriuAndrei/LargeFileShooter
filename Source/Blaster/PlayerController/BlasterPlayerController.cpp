@@ -13,7 +13,7 @@
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/GameState/BlasterGameState.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
-
+#include "Components/Image.h"
 
 
 void ABlasterPlayerController::BeginPlay()
@@ -38,7 +38,53 @@ void ABlasterPlayerController::Tick(float DeltaSeconds)
 	SetHUDTime();
 	CheckTimeSync(DeltaSeconds);
 	PoolInit();
+
+	CheckPing(DeltaSeconds);
 	
+}
+
+void ABlasterPlayerController::CheckPing(float DeltaSeconds)
+{
+	HighPingRunningTime += DeltaSeconds;
+	if(HighPingRunningTime > CheckPingFrequency)
+	{
+		PlayerState = PlayerState == nullptr ? TObjectPtr<APlayerState>(GetPlayerState<APlayerState>()) : PlayerState;
+		if(PlayerState)
+		{
+			// Ping Compressed (/4) then multiply by 4 so its not accurate
+			if(PlayerState->GetPingInMilliseconds() > HighPingThreshold)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Ping: %f"), PlayerState->GetPingInMilliseconds());
+				HighPingWarning();
+				PingAnimationRunningTime = 0.f;
+			}
+		}
+		HighPingRunningTime = 0.f;
+	}
+	bool bHighPingAnimationPlayed =
+		BlasterHUD &&
+			BlasterHUD->CharacterOverlay &&
+				BlasterHUD->CharacterOverlay->HighPingAnimation &&
+					BlasterHUD->CharacterOverlay->IsAnimationPlaying(BlasterHUD->CharacterOverlay->HighPingAnimation);
+	if(bHighPingAnimationPlayed)
+	{
+		PingAnimationRunningTime +=DeltaSeconds;
+		if(PingAnimationRunningTime > HighPingDuration)
+		{
+			StopHighPingWarning();
+		}
+	}
+}
+
+
+void ABlasterPlayerController::CheckTimeSync(float DeltaSeconds)
+{
+	TimeSyncRunningTime +=DeltaSeconds;
+	if(IsLocalController()&& TimeSyncRunningTime>TimeSyncFrequency)
+	{
+		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+		TimeSyncRunningTime=0.f;
+	}
 }
 
 void ABlasterPlayerController::ServerCheckMatchState_Implementation()
@@ -107,10 +153,38 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 	else
 	{
 		//daca nu le putem face update in HUD, atunci le memoram si cand HUD devine valid de facem update
-		bInitializeCharacterOverlay = true;
+		bInitializeHealth = true;
 		HUDHealth=Health;
 		HUDMaxHealth=MaxHealth;
 	}
+}
+
+void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
+{
+
+	BlasterHUD= BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+					 BlasterHUD ->CharacterOverlay &&
+					 BlasterHUD->CharacterOverlay->ShieldBar &&
+					 BlasterHUD->CharacterOverlay->ShieldText;
+	
+	if(bHUDValid)
+	{
+		const float ShieldPercent = Shield/MaxShield;
+		BlasterHUD->CharacterOverlay->ShieldBar->SetPercent(ShieldPercent);
+		FString ShieldText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Shield), FMath::CeilToInt(MaxShield));
+		BlasterHUD->CharacterOverlay->ShieldText->SetText(FText::FromString(ShieldText));
+	}
+	else
+	{
+		//daca nu le putem face update in HUD, atunci le memoram si cand HUD devine valid de facem update
+		bInitializeShield = true;
+		HUDShield=Shield;
+		HUDMaxShield=MaxShield;
+	} 
+
+	
+	
 }
 
 void ABlasterPlayerController::SetHUDScore(float Score)
@@ -127,7 +201,7 @@ void ABlasterPlayerController::SetHUDScore(float Score)
 	}
 	else
 	{
-		bInitializeCharacterOverlay = true;
+		bInitializeScore = true;
 		HUDScore=Score;
 	}
 	
@@ -148,7 +222,7 @@ void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 	}
 	else
 	{
-		bInitializeCharacterOverlay=true;
+		bInitializeDefeats=true;
 		HUDDefeats=Defeats;
 	}
 	
@@ -166,6 +240,11 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 		BlasterHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(AmmoText));
 		
 	}
+	else
+	{
+		bInitializeWeaponAmmo = true;
+		HUDWeaponAmmo = Ammo;
+	}
 	
 	
 }
@@ -181,6 +260,11 @@ void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
 		BlasterHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(AmmoText));
 		
+	}
+	else
+	{
+		bInitializeCarriedAmmo = true;
+		HUDCarriedAmmo = Ammo;
 	}
 	
 }
@@ -248,6 +332,7 @@ void ABlasterPlayerController::SetHUDGrenades(int32 Grenades)
 	}
 	else
 	{
+		bInitializeGrenades = true;
 		HUDGrenades = Grenades;
 	}
 
@@ -316,14 +401,18 @@ void ABlasterPlayerController::PoolInit()
 			if(CharacterOverlay)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("S-a intrat in poolinit"));
-				SetHUDHealth(HUDHealth,HUDMaxHealth);
-				SetHUDScore(HUDScore);
-				SetHUDDefeats(HUDDefeats);
+
+				if(bInitializeHealth) SetHUDHealth(HUDHealth,HUDMaxHealth);
+				if(bInitializeShield) SetHUDShield(HUDShield,HUDMaxShield);
+				if(bInitializeScore)SetHUDScore(HUDScore);
+				if(bInitializeDefeats)SetHUDDefeats(HUDDefeats);
+				if(bInitializeCarriedAmmo) SetHUDCarriedAmmo(HUDCarriedAmmo);
+				if(bInitializeWeaponAmmo) SetHUDWeaponAmmo(HUDWeaponAmmo);
 
 				ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
 				if(BlasterCharacter && BlasterCharacter->GetCombat())
 				{
-					SetHUDGrenades(BlasterCharacter->GetCombat()->GetGrenades());
+					if(bInitializeGrenades)	SetHUDGrenades(BlasterCharacter->GetCombat()->GetGrenades());
 					
 				}
 				
@@ -333,18 +422,44 @@ void ABlasterPlayerController::PoolInit()
 	
 }
 
-void ABlasterPlayerController::CheckTimeSync(float DeltaSeconds)
+
+
+void ABlasterPlayerController::HighPingWarning()
 {
-	TimeSyncRunningTime +=DeltaSeconds;
-	if(IsLocalController()&& TimeSyncRunningTime>TimeSyncFrequency)
+	BlasterHUD= BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+					 BlasterHUD ->CharacterOverlay &&
+					 BlasterHUD->CharacterOverlay->HighPingImage &&
+					 BlasterHUD->CharacterOverlay->HighPingAnimation;
+	
+	if(bHUDValid)
 	{
-		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
-		TimeSyncRunningTime=0.f;
+		BlasterHUD ->CharacterOverlay->HighPingImage->SetOpacity(1.f);
+		BlasterHUD ->CharacterOverlay->PlayAnimation(
+			BlasterHUD->CharacterOverlay->HighPingAnimation,
+			0.f,
+			5);
+
 	}
 }
 
-
-
+void ABlasterPlayerController::StopHighPingWarning()
+{
+	BlasterHUD= BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+					 BlasterHUD ->CharacterOverlay &&
+					 BlasterHUD->CharacterOverlay->HighPingImage &&
+					 BlasterHUD->CharacterOverlay->HighPingAnimation;
+	
+	if(bHUDValid)
+	{
+		BlasterHUD ->CharacterOverlay->HighPingImage->SetOpacity(0.f);
+		if(BlasterHUD->CharacterOverlay->IsAnimationPlaying(BlasterHUD->CharacterOverlay->HighPingAnimation))
+		{
+			BlasterHUD->CharacterOverlay->StopAnimation(BlasterHUD->CharacterOverlay->HighPingAnimation);
+		}
+	}
+}
 
 
 

@@ -8,8 +8,10 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Blaster/BlasterComponents/BuffComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "Blaster/Blaster.h"
@@ -20,10 +22,12 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
 #include "Blaster/Weapon/WeaponTypes.h"
+#include "Blaster/BlasterComponents/LagCompensationComponent.h"
 
 // Sets default values
 ABlasterCharacter::ABlasterCharacter()
 {
+
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -45,6 +49,12 @@ ABlasterCharacter::ABlasterCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
 
+	Buff = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
+	Buff->SetIsReplicated(true);
+
+	LagCompensation = CreateDefaultSubobject<ULagCompensationComponent>(TEXT("LagCompensation"));
+	
+
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true; //  ne asiguram ca can crouch e setat by default pe true
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
@@ -61,6 +71,95 @@ ABlasterCharacter::ABlasterCharacter()
 	AttachedGrenade = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Attached Grenade"));
 	AttachedGrenade->SetupAttachment(GetMesh(),FName("GrenadeSocket"));
 	AttachedGrenade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	/**
+	 *	 HitBoxes for server-side rewind
+	 */
+	HitCollisionBoxes2.Reset();
+
+	
+	head = CreateDefaultSubobject<UBoxComponent>(TEXT("head"));
+	head->SetupAttachment(GetMesh(), FName("head"));
+	head->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("head"),head);
+	
+	Hips = CreateDefaultSubobject<UBoxComponent>(TEXT("Hips"));
+	Hips->SetupAttachment(GetMesh(), FName("Hips"));
+	Hips->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("Hips"),Hips);
+	
+	Spine = CreateDefaultSubobject<UBoxComponent>(TEXT("Spine"));
+	Spine->SetupAttachment(GetMesh(), FName("Spine"));
+	Spine->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("Spine"),Spine);
+
+	Spine1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Spine1"));
+	Spine1->SetupAttachment(GetMesh(), FName("Spine1"));
+	Spine1->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("Spine1"),Spine1);
+
+	LeftArm = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftArm"));
+	LeftArm->SetupAttachment(GetMesh(), FName("LeftArm"));
+	LeftArm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftArm"),LeftArm);
+	
+	RightArm = CreateDefaultSubobject<UBoxComponent>(TEXT("RightArm"));
+	RightArm->SetupAttachment(GetMesh(), FName("RightArm"));
+	RightArm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightArm"),RightArm);
+	
+	LeftForeArm = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftForeArm"));
+	LeftForeArm->SetupAttachment(GetMesh(), FName("LeftForeArm"));
+	LeftForeArm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftForeArm"),LeftForeArm);
+
+	RightForeArm = CreateDefaultSubobject<UBoxComponent>(TEXT("RightForeArm"));
+	RightForeArm->SetupAttachment(GetMesh(), FName("RightForeArm"));
+	RightForeArm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightForeArm"),RightForeArm);
+	
+	LeftHand = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftHand"));
+	LeftHand->SetupAttachment(GetMesh(), FName("LeftHand"));
+	LeftHand->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftHand"),LeftHand);
+	
+	RightHand = CreateDefaultSubobject<UBoxComponent>(TEXT("RightHand"));
+	RightHand->SetupAttachment(GetMesh(), FName("RightHand"));
+	RightHand->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightHand"),RightHand);
+
+	LeftUpLeg = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftUpLeg"));
+	LeftUpLeg->SetupAttachment(GetMesh(), FName("LeftUpLeg"));
+	LeftUpLeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftUpLeg"),LeftUpLeg);
+	
+	RightUpLeg = CreateDefaultSubobject<UBoxComponent>(TEXT("RightUpLeg"));
+	RightUpLeg->SetupAttachment(GetMesh(), FName("RightUpLeg"));
+	RightUpLeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightUpLeg"),RightUpLeg);
+	
+	LeftLeg = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftLeg"));
+	LeftLeg->SetupAttachment(GetMesh(), FName("LeftLeg"));
+	LeftLeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftLeg"),LeftLeg);
+	
+	RightLeg = CreateDefaultSubobject<UBoxComponent>(TEXT("RightLeg"));
+	RightLeg->SetupAttachment(GetMesh(), FName("RightLeg"));
+	RightLeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightLeg"),RightLeg);
+	
+	LeftFoot = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftFoot"));
+	LeftFoot->SetupAttachment(GetMesh(), FName("LeftFoot"));
+	LeftFoot->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("LeftFoot"),LeftFoot);
+	
+	RightFoot = CreateDefaultSubobject<UBoxComponent>(TEXT("RightFoot"));
+	RightFoot->SetupAttachment(GetMesh(), FName("RightFoot"));
+	RightFoot->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitCollisionBoxes2.Add(FName("RightFoot"),RightFoot);
+	
+	
+
 }
 
 void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -69,6 +168,7 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	// cu specificarea conditiei, functia se va replica doar ownerilor de blaster character
 	DOREPLIFETIME_CONDITION(ABlasterCharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME(ABlasterCharacter, Health);
+	DOREPLIFETIME(ABlasterCharacter, Shield);
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 }
 
@@ -103,7 +203,8 @@ void ABlasterCharacter::BeginPlay()
 {
 	//UE_LOG(LogTemp, Warning, TEXT("S-a apelat functia callback si health-ul este: %f"), Health);
 	Super::BeginPlay();
-	UpdateHUDHealth();
+
+	
 	if(HasAuthority()) 
 	{
 		
@@ -180,6 +281,25 @@ void ABlasterCharacter::PostInitializeComponents()
 	if (Combat)
 	{
 		Combat->Character = this;
+	}
+	if(Buff)
+	{
+		Buff->Character = this;
+		Buff->SetInitialSpeeds(
+			GetCharacterMovement()->MaxWalkSpeed,
+			GetCharacterMovement()->MaxWalkSpeedCrouched
+			);
+		Buff->SetInitialJumpVelocity(GetCharacterMovement()->JumpZVelocity);
+
+	}
+
+	if(LagCompensation)
+	{
+		LagCompensation->Character = this;
+		if(Controller)
+		{
+			LagCompensation->Controller = Cast<ABlasterPlayerController>(Controller);
+		}
 	}
 }
 
@@ -332,10 +452,7 @@ if(BlasterPlayerController)
 // asta se apeleaza pe server
 void ABlasterCharacter::Elim()
 {
-	if(Combat && Combat->EquippedWeapon)
-	{
-		Combat->EquippedWeapon->Dropped();
-	}
+	DropOrDestroyWeapons();
 	MulticastElim();
 	GetWorldTimerManager().SetTimer(
 		ElimTimer,
@@ -358,6 +475,34 @@ void ABlasterCharacter::ElimTImerFinished()
 	}
 }
 
+void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
+{
+	if(Weapon == nullptr) return;
+	if(Weapon->bDestroyWeapon)
+	{
+		Weapon->Destroy();
+	}
+	else
+	{
+		Weapon->Dropped();
+	}
+	
+}
+
+void ABlasterCharacter::DropOrDestroyWeapons()
+{
+	if (Combat)
+	{
+		if (Combat->EquippedWeapon)
+		{
+			DropOrDestroyWeapon(Combat->EquippedWeapon);
+		}
+		if(Combat->SecondaryWeapon)
+		{
+			DropOrDestroyWeapon(Combat->SecondaryWeapon);
+		}
+	}
+}
 
 
 void ABlasterCharacter::PlayHitReactMontage()
@@ -384,12 +529,34 @@ void ABlasterCharacter::GrenadeButtonPressed()
 	
 }
 
+
+
 void ABlasterCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
                                       AController* InstigatorController, AActor* DamageCauser)
 {
 	if(bElimmed) return;
-	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+
+	float DamageToHealth = Damage;
+	if(Shield > 0)
+	{
+		if(Shield >= Damage)
+		{
+			Shield = FMath::Clamp(Shield-Damage, 0.f, MaxShield);
+			DamageToHealth = 0.f;
+		}
+		else
+		{
+			Shield = 0;
+			DamageToHealth = FMath::Clamp(DamageToHealth-Shield, 0.f, Damage);
+		}
+	}
+	
+	
+	
+	Health = FMath::Clamp(Health - DamageToHealth, 0.f, MaxHealth);
+	
 	UpdateHUDHealth();
+	UpdateHUDShield();
 	PlayHitReactMontage();
 
 		if(Health == 0.f)
@@ -442,14 +609,8 @@ void ABlasterCharacter::EquipButtonPressed()
 	if(bDisableGameplay) return;
 	if (Combat)
 	{
-		if (HasAuthority())
-		{
-			Combat->EquipWeapon(OverlappingWeapon);
-		}
-		else
-		{
 			ServerEquipButtonPressed();
-		}
+		
 	}
 
 	// asta apeleaza EquipWeapon doar daca avem autoritate, adica daca suntem server, dar daca nu suntem vrem sa ne trimita la (RPC-ul creat) ServerEquipButtonPressed
@@ -460,7 +621,14 @@ void ABlasterCharacter::ServerEquipButtonPressed_Implementation()
 {
 	if (Combat)
 	{
-		Combat->EquipWeapon(OverlappingWeapon);
+		if(OverlappingWeapon)
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		else if(Combat->ShouldSwapWeapons())
+		{
+			Combat->SwapWeapons();
+		}
 	}
 }
 
@@ -672,10 +840,24 @@ float ABlasterCharacter::CalculateSpeed()
 	return Velocity.Size();
 }
 
-void ABlasterCharacter::OnRep_Health()
+void ABlasterCharacter::OnRep_Health(float LastHealth)
 {
 	UpdateHUDHealth();
-	PlayHitReactMontage();
+	if(Health < LastHealth)
+	{
+		PlayHitReactMontage();
+		
+	}
+}
+
+void ABlasterCharacter::OnRep_Shield(float LastShield)
+{
+	UpdateHUDShield();
+	if(Shield < LastShield)
+	{
+		PlayHitReactMontage();
+		
+	}
 }
 
 void ABlasterCharacter::UpdateHUDHealth()
@@ -686,6 +868,43 @@ void ABlasterCharacter::UpdateHUDHealth()
 	{
 		BlasterPlayerController->SetHUDHealth(Health,MaxHealth);
 	}
+}
+
+void ABlasterCharacter::UpdateHUDShield()
+{
+	BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+	if(BlasterPlayerController)
+	{
+		BlasterPlayerController->SetHUDShield(Shield,MaxShield);
+	}
+}
+
+void ABlasterCharacter::UpdateHUDAmmo()
+{
+	BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+	if(BlasterPlayerController && Combat && Combat->EquippedWeapon)
+	{
+		BlasterPlayerController->SetHUDCarriedAmmo(Combat->CarriedAmmo);
+		BlasterPlayerController->SetHUDWeaponAmmo(Combat->EquippedWeapon->GetAmmo());
+	}
+}
+
+void ABlasterCharacter::SpawnDefaultWeapon()
+{
+	//Get Gamemode returneaza Null daca nu suntem pe server
+	ABlasterGameMode* BlasterGameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this));
+	UWorld* World = GetWorld();
+	if(BlasterGameMode && World && !bElimmed && DefaultWeaponClass)
+	{
+		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(DefaultWeaponClass);
+		StartingWeapon->bDestroyWeapon = true;
+		if(Combat)
+		{
+			Combat->EquipWeapon(StartingWeapon);
+		}
+	}
+	
+	
 }
 
 void ABlasterCharacter::PollInit()
@@ -699,6 +918,17 @@ void ABlasterCharacter::PollInit()
 			BlasterPlayerState->AddToScore(0.f);
 			BlasterPlayerState->AddToDefeats(0);
 		}
+	}
+	if(BlasterPlayerController == nullptr)
+	{
+		BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+			if(BlasterPlayerController)
+			{
+				SpawnDefaultWeapon();
+				UpdateHUDAmmo();	
+				UpdateHUDHealth();
+				UpdateHUDShield();
+			}
 	}
 }
 
@@ -787,4 +1017,10 @@ ECombatState ABlasterCharacter::GetCombatState() const
 {
 	if(Combat == nullptr) return ECombatState::ECS_MAX;
 	return Combat->CombatState;
+}
+
+bool ABlasterCharacter::IsLocallyReloading()
+{
+	if(Combat == nullptr) return false;
+	return Combat->bLocallyReloading;
 }
