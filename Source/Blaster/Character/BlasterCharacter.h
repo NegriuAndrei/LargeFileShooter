@@ -4,11 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "Blaster/BlasterTypes/TurningInPlace.h"
+#include "Blaster/BlasterTypes/Team.h"
 #include "GameFramework/Character.h"
 #include "Components/TimelineComponent.h"
 #include "Blaster/Interfaces/InteractWithCrosshairsInterface.h"
 #include "Blaster/BlasterTypes/CombatState.h"
+#include "Blaster/GameMode/BlasterGameMode.h"
 #include "BlasterCharacter.generated.h"
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLeftGame);
+
+
 
 UCLASS()
 class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
@@ -23,15 +30,19 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+	/**
+	 * Play montages
+	 */
 	void PlayFireMontage(bool bAiming);
 	void PlayReloadMontage();
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
+	void PlaySwapMontage();
 	
 
-	void Elim();
+	void Elim(bool bPlayerLeftGame);
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastElim();
+	void MulticastElim(bool bPlayerLeftGame);
 	
 	//virtual void TakeDamage() override;
 
@@ -53,7 +64,20 @@ public:
 	UPROPERTY()
 	TMap<FName, class UBoxComponent*> HitCollisionBoxes2;
 
-	
+	bool bFinishedSwapping = false;
+
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
+
+	FOnLeftGame OnLeftGame;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastGainedTheLead();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastLostTheLead();
+
+	void SetTeamColor(ETeam Team);
 protected:
 	virtual void BeginPlay() override;
 
@@ -196,6 +220,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = Combat)
 	UAnimMontage* ThrowGrenadeMontage;
 	
+	UPROPERTY(EditAnywhere, Category = Combat)
+	UAnimMontage* SwapMontage;
+	
 	
 	void HideCameraIfCharacterClose();
 
@@ -249,6 +276,10 @@ private:
 	void ElimTImerFinished();
 
 
+	bool bLeftGame = false;
+
+
+
 	/**
 	 *	Disolve Effect
 	 */
@@ -270,9 +301,32 @@ private:
 	UMaterialInstanceDynamic* DynamicDissolveMaterialInstance;
 
 	// Material instance set on blueprints, used with the dynamic material instance
-	UPROPERTY(EditAnywhere, Category = Elim)
+	UPROPERTY(VisibleAnywhere, Category = Elim)
 	UMaterialInstance* DissolveMaterialInstance;
 
+	/**
+	 *	Team colors
+	 */
+
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* RedDissolveMaterialInst;
+
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* RedMaterial;
+	
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* BlueDissolveMaterialInst;
+
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* BlueMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* OriginalMaterial;
+	
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* OriginalDissolveMaterialInst;
+	
+	
 
 	/**
 	 *	Elim Bot
@@ -290,6 +344,13 @@ private:
 	UPROPERTY()
 	class ABlasterPlayerState* BlasterPlayerState;
 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraSystem* CrownSystem;
+
+	UPROPERTY()
+	class UNiagaraComponent* CrownComponent;
+
+	
 	/**
 	 *	Grenade
 	 */
@@ -303,8 +364,9 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AWeapon> DefaultWeaponClass;
-	
-	
+
+	UPROPERTY()
+	class ABlasterGameMode* BlasterGameMode;
 public:
 	// de fiecare data cand variabila OverlappingWeapon se schimba pe server, aceasta va replica functia de mai jos si implicit va lua aceeasi valoare pentru toti clientii, nu se apeleaza la fiecare frame si doar la fiecare modificare a variabilei
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -332,6 +394,7 @@ public:
 	FORCEINLINE UStaticMeshComponent* GetAttachedGrenade() const {return AttachedGrenade;}
 	FORCEINLINE UBuffComponent* GetBuff() const {return Buff;}
 	bool IsLocallyReloading();
+	FORCEINLINE ULagCompensationComponent* GetLagCompensation() const { return LagCompensation; }
 	
 	
 	UPROPERTY(EditAnywhere, Category = "WeaponRotationCorrection") 

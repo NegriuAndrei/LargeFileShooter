@@ -6,7 +6,11 @@
 #include "CharacterOverlay.h"
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/PlayerController.h"
+#include "ElimAnnouncement.h"
 #include "Announcement.h"
+#include "Components/HorizontalBox.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/CanvasPanelSlot.h"
 
 
 void ABlasterHUD::BeginPlay()
@@ -14,6 +18,55 @@ void ABlasterHUD::BeginPlay()
 	Super::BeginPlay();
 }
 
+void ABlasterHUD::AddElimAnnouncement(FString Attacker, FString Victim)
+{
+	OwningPlayer = OwningPlayer ==nullptr ? GetOwningPlayerController() : OwningPlayer;
+	if(OwningPlayer && ElimAnnouncementClass)
+	{
+		UElimAnnouncement* ElimAnnouncementWidget = CreateWidget<UElimAnnouncement>(OwningPlayer, ElimAnnouncementClass);
+		if(ElimAnnouncementWidget)
+		{
+			ElimAnnouncementWidget->SetElimAnnouncementText(Attacker,Victim);
+			ElimAnnouncementWidget->AddToViewport();
+
+			for(UElimAnnouncement* Msg : ElimMessages)
+			{
+				if(Msg && Msg->AnnouncementBox)
+				{
+					UCanvasPanelSlot* CanvasSlot = UWidgetLayoutLibrary::SlotAsCanvasSlot(Msg->AnnouncementBox);
+					if(CanvasSlot)
+					{
+						FVector2d Position = CanvasSlot->GetPosition();
+						FVector2d NewPosition(
+							CanvasSlot->GetPosition().X,
+							Position.Y- CanvasSlot->GetSize().Y
+							);
+						CanvasSlot->SetPosition(NewPosition);
+						
+					}
+					
+				}
+				
+			}
+
+
+			
+			ElimMessages.Add(ElimAnnouncementWidget);
+
+			FTimerHandle ElimMsgTimer;
+			FTimerDelegate ElimMsgDelegate;
+			ElimMsgDelegate.BindUFunction(this, FName("ElimAnnouncementTimerFinished"), ElimAnnouncementWidget);
+			GetWorldTimerManager().SetTimer(
+				ElimMsgTimer,
+				ElimMsgDelegate,
+				ElimAnnouncementTime,
+				false
+				);
+			
+		}
+	}
+	
+}
 void ABlasterHUD::AddCharacterOverlay()
 {
 	APlayerController* PlayerController = GetOwningPlayerController();
@@ -33,6 +86,15 @@ void ABlasterHUD::AddAnnouncement()
 		Announcement->AddToViewport();
 	}
 }
+
+void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MsgToRemove)
+{
+	if(MsgToRemove)
+	{
+		MsgToRemove->RemoveFromParent();
+	}
+}
+
 
 
 void ABlasterHUD::DrawHUD()
@@ -103,3 +165,4 @@ void ABlasterHUD::DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter, F
 		CrosshairColor
 	);
 }
+

@@ -3,7 +3,6 @@
 
 #include "HitScanWeapon.h"
 
-#include "DrawDebugHelpers.h"
 #include "NiagaraValidationRule.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Blaster/Character/BlasterCharacter.h"
@@ -11,6 +10,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
 #include "WeaponTypes.h"
+#include "Blaster/BlasterComponents/LagCompensationComponent.h"
+#include "Blaster/PlayerController/BlasterPlayerController.h"
 
 void AHitScanWeapon::Fire(const FVector& HitTarget)
 {
@@ -29,15 +30,37 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 		FHitResult FireHit;
 		WeaponTraceHit(Start,HitTarget,FireHit);
 		ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-		if(BlasterCharacter && HasAuthority() && InstigatorController)
+		if(BlasterCharacter &&  InstigatorController)
 		{
+			bool bCauseAuthDamage = !bUseServerSideRewind || OwnerPawn->IsLocallyControlled();
+			if(HasAuthority() && bCauseAuthDamage)
+			{
+				//	Aici verificam daca a fost headshot sau nu cum sa aplicam damage
+				const float DamageToCause = FireHit.BoneName.ToString() == FString("head") ? HeadShotDamage : Damage;
+				
 			UGameplayStatics::ApplyDamage(
 				BlasterCharacter,
-				Damage,
+				DamageToCause,
 				InstigatorController,
 				this,
 				UDamageType::StaticClass()
 				);
+			}
+			if(!HasAuthority() && bUseServerSideRewind)
+			{
+				BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(OwnerPawn) : BlasterOwnerCharacter;
+				BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(InstigatorController) : BlasterOwnerController;
+				if(BlasterOwnerController && BlasterOwnerCharacter && BlasterOwnerCharacter->GetLagCompensation() && BlasterOwnerCharacter->IsLocallyControlled())
+				{
+					BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(
+						BlasterCharacter,
+						Start,
+						HitTarget,
+						BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime
+						);
+				}
+			}
+				
 						
 		}
 		if(ImpactParticles)
@@ -99,15 +122,12 @@ void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 			BeamEnd = OutHit.ImpactPoint;
 			
 		}
+		else
+		{
+			OutHit.ImpactPoint = End;
+		}
 
-		DrawDebugSphere(
-			GetWorld(),
-			BeamEnd,
-			16.f,
-			12,
-			FColor::Orange,
-			true
-		);
+		
 		
 		if(BeamParticles)
 		{

@@ -30,6 +30,13 @@ public:
 	void Reload();
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishSwap();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishSwapAttachWeapons();
+	
 	void FireButtonPressed(bool bPressed);
 
 	UFUNCTION(BlueprintCallable)
@@ -75,15 +82,15 @@ protected:
 	void ShotgunLocalFire( const TArray<FVector_NetQuantize>& TraceHitTargets);
 
 
-	UFUNCTION(Server, Reliable)
-	void ServerFire(const FVector_NetQuantize& TraceHitTarget);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget, float FireDelay);
 
 	//NetMulticast apelat de pe server functioneaza pe server si pe toti clientii, dar apelat de pe client merge doar pe acel client
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
 
-	UFUNCTION(Server, Reliable)
-	void ServerShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
