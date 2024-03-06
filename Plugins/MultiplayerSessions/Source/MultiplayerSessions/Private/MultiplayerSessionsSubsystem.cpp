@@ -29,6 +29,8 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FString MatchType)
 {
+	DesiredNumPublicConections = NumPublicConnections;
+	DesiredMatchType = MatchType;
 	if (!SessionInterface.IsValid())
 	{
 		return;

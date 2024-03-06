@@ -42,7 +42,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	TurningInPlace = BlasterCharacter->GetTurningInPlace();
 	bRotateRootBone = BlasterCharacter->ShouldRotateRootBone();
 	bElimmed = BlasterCharacter->IsElimmed();
-
+	bHoldingTheFlag = BlasterCharacter->IsHoldingTheFlag();
 
 	// Cu FMath::RInterpTo alege drumul cel mai scurt de la o animatie la alta, de exemplu pentru Leaning, nu merge de la 180 ->0 ->-180 si merge direct de la 180-> -180
 	// Offset Yaw for Starfing

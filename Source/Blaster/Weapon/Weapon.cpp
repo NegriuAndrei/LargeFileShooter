@@ -102,6 +102,8 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacter)
 	{
+		if(WeaponType == EWeaponType::EWT_Flag && BlasterCharacter->GetTeam() == Team) return;
+		if(BlasterCharacter->IsHoldingTheFlag()) return;
 		BlasterCharacter->SetOverlappingWeapon(this);
 	}
 }
@@ -112,6 +114,8 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacter)
 	{
+		if(WeaponType == EWeaponType::EWT_Flag && BlasterCharacter->GetTeam() == Team) return;
+		if(BlasterCharacter->IsHoldingTheFlag()) return;
 		BlasterCharacter->SetOverlappingWeapon(nullptr);
 	}
 	
@@ -215,7 +219,7 @@ void AWeapon::OnWeaponStateSet()
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
-		OnEquiped();
+		OnEquipped();
 		break;
 	case EWeaponState::EWS_EquippedSecondary:
 		OnEquippedSecondary();
@@ -228,7 +232,7 @@ void AWeapon::OnWeaponStateSet()
 	
 }
 
-void AWeapon::OnEquiped()
+void AWeapon::OnEquipped()
 {
 	ShowPickUpWidget(false);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -264,7 +268,7 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);//asta merge doar daca simulam fizica, adica asta de sus
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	WeaponMesh->SetCollisionResponseToChannels(ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 

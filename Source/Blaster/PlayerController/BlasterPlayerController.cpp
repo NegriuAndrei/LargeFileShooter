@@ -421,6 +421,8 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 	
 }
 
+
+
 void ABlasterPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 {
 	BlasterHUD= BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
@@ -572,14 +574,13 @@ void ABlasterPlayerController::PoolInit()
 			CharacterOverlay = BlasterHUD->CharacterOverlay;
 			if(CharacterOverlay)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("S-a intrat in poolinit"));
-
 				if(bInitializeHealth) SetHUDHealth(HUDHealth,HUDMaxHealth);
 				if(bInitializeShield) SetHUDShield(HUDShield,HUDMaxShield);
 				if(bInitializeScore)SetHUDScore(HUDScore);
 				if(bInitializeDefeats)SetHUDDefeats(HUDDefeats);
 				if(bInitializeCarriedAmmo) SetHUDCarriedAmmo(HUDCarriedAmmo);
 				if(bInitializeWeaponAmmo) SetHUDWeaponAmmo(HUDWeaponAmmo);
+				
 
 				ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
 				if(BlasterCharacter && BlasterCharacter->GetCombat())

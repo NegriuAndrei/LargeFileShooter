@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Blaster/BlasterTypes/Team.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WeaponTypes.h"
@@ -46,7 +47,7 @@ public:
 	void ShowPickUpWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
 
-	void Dropped();
+	virtual void Dropped();
 	void AddAmmo(int32 AmmoToAdd);
 
 	FVector TraceEndWithScatter(const FVector& HitTarget);
@@ -111,7 +112,7 @@ protected:
 
 	virtual void OnWeaponStateSet();
 
-	virtual void OnEquiped();
+	virtual void OnEquipped();
 	virtual void OnDropped();
 	virtual void OnEquippedSecondary();
 
@@ -196,10 +197,16 @@ private:
 	
 	UPROPERTY(EditAnywhere)
 	EWeaponType WeaponType;
+
+	UPROPERTY(EditAnywhere)
+	ETeam Team;
+
+
+
 	
 	/**
-    	 *	Trace End with Scatter
-    	 */
+    *	Trace End with Scatter
+    */
     
     
     	
@@ -209,15 +216,12 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class USphereComponent* AreaSphere;
     
-    	
-    	
-
-	
 public:
 	void SetWeaponState(EWeaponState State);
 
 	FORCEINLINE USphereComponent* GetAreaSphere() const {return AreaSphere; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh;}
+	FORCEINLINE UWidgetComponent* GetPickupWidget ()  const { return PickUpWidget;}
 	FORCEINLINE float GetZoomFOV() const{return ZoomedFOV;}
 	FORCEINLINE float GetZoomInterpSpeed() const{return ZoomInterpSpeed;}
 	bool IsEmpty();
@@ -227,6 +231,7 @@ public:
 	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity;}
 	FORCEINLINE float GetDamage() const {return Damage; }
 	FORCEINLINE float GetHeadShotDamage() const {return HeadShotDamage; }
+	FORCEINLINE ETeam GetTeam() const {return Team; }
 };
 
 

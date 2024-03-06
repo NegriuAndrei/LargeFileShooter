@@ -60,4 +60,10 @@ public:
 
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	UWidgetAnimation* HighPingAnimation;
+
+	/**
+	 *	Weapon Type image
+	 */
+
+	
 };

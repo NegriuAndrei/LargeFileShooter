@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "Interfaces//OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 
 #include "MultiplayerSessionsSubsystem.generated.h"
 //
@@ -51,6 +51,9 @@ public:
 	FMultiplayerOnDestroySessionComplete MultiplayerOnDestroySessionComplete;
 	FMultiplayerOnStartSessionComplete MultiplayerOnStartSessionComplete;
 
+	int32 DesiredNumPublicConections{};
+	FString DesiredMatchType{};
+
 protected:
 	//
 	// Internal callbacks for the delegates we'll add to the Online Session Interface delegate list
@@ -93,4 +96,6 @@ private:
 	bool bCreateSessionOnDestroy{ false};
 	int32 LastNumPublicConnections;
 	FString LastMatchType;
+
+	
 };
